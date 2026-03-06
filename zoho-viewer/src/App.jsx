@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { Chart, registerables } from "https://esm.sh/chart.js@4.4.1";
 Chart.register(...registerables);
 import haivaLogo from "./assets/haiva.png";
-const API_URL = "/api/records";
-const CLASSIFY_URL = "/api/classify";
+const API_URL      = "http://localhost:8000/api/records";
+const CLASSIFY_URL = "http://localhost:8000/api/classify";
 
 /* ── Sentiment category definitions ── */
 const SENTIMENT_DEFS = {
