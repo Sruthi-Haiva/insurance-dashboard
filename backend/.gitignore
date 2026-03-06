@@ -3,12 +3,3 @@ __pycache__/
 *.pyc
 .env
 venv/
-
-# Node / React
-node_modules/
-dist/
-build/
-
-# OS files
-.DS_Store
-Thumbs.db
