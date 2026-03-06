@@ -3871,14 +3871,14 @@ export default function App() {
           </div>
         </div>
 
-        {/* 2. Recommendation Likelihood */}
+        {/* 2. Recommendation Score */}
         <div style={{ marginBottom: 24 }}>
-          <div style={S.secHd}>Recommendation Likelihood Analysis</div>
+          <div style={S.secHd}>Recommendation Score Analysis</div>
           <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.35fr) minmax(0,1fr)", gap: 14 }}>
             <div style={S.card}>
               <div style={S.cardHd}>
                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <h3 style={{ fontSize: "13.5px", fontWeight: 600, margin: 0 }}>Recommendation Likelihood Breakdown</h3>
+                  <h3 style={{ fontSize: "13.5px", fontWeight: 600, margin: 0 }}>Recommendation Score Breakdown</h3>
                   <InfoIcon text="Customers grouped by how likely they are to recommend: Very Likely (9–10), Somewhat Likely (7–8), and Unlikely (0–6)." />
                 </div>
                 <span style={S.badgeRed}>Score: {npsScore >= 0 ? "+" : ""}{npsScore}</span>
