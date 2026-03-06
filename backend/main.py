@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import List
 import httpx
 import os
 import time
@@ -30,9 +31,9 @@ ZOHO_REFRESH_TOKEN = os.getenv("ZOHO_REFRESH_TOKEN")
 ZOHO_SHEET_ID      = os.getenv("ZOHO_SHEET_ID")
 ZOHO_TOKEN_URL     = "https://accounts.zoho.in/oauth/v2/token"
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-OPENROUTER_MODEL   = "google/gemma-3-4b-it:free"
-OPENROUTER_URL     = "https://openrouter.ai/api/v1/chat/completions"
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_MODEL   = "llama-3.1-8b-instant"   # fast, free, reliable
+GROQ_URL     = "https://api.groq.com/openai/v1/chat/completions"
 
 
 # ── Zoho helpers ──────────────────────────────────────────────────────────────
@@ -99,14 +100,14 @@ async def health():
     }
 
 
-# ── OpenRouter sentiment classification ───────────────────────────────────────
+# ── Groq sentiment classification ─────────────────────────────────────────────
 
 class ClassifyRequest(BaseModel):
-    answers: list[str]
-    categories: list[str]
+    answers: List[str]
+    categories: List[str]
 
 
-async def _call_openrouter(answers: list[str], categories: list[str], attempt: int = 0) -> dict:
+async def _call_groq(answers: List[str], categories: List[str], attempt: int = 0) -> dict:
     cat_map   = {i: c for i, c in enumerate(categories)}
     cat_index = ", ".join(f"{i}={c}" for i, c in cat_map.items())
     numbered  = "\n".join(f"{i + 1}. {a}" for i, a in enumerate(answers))
@@ -118,40 +119,39 @@ async def _call_openrouter(answers: list[str], categories: list[str], attempt: i
         f"Answers:\n{numbered}\n\nJSON array of numbers:"
     )
 
-    if not OPENROUTER_API_KEY:
-        raise HTTPException(status_code=500, detail="OPENROUTER_API_KEY not set in environment")
+    if not GROQ_API_KEY:
+        raise HTTPException(status_code=500, detail="GROQ_API_KEY not set in environment")
 
     async with httpx.AsyncClient(timeout=30) as client:
         response = await client.post(
-            OPENROUTER_URL,
+            GROQ_URL,
             headers={
                 "Content-Type":  "application/json",
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                "HTTP-Referer":  "https://chola-dashboard.local",
-                "X-Title":       "Chola MS Survey Dashboard",
+                "Authorization": f"Bearer {GROQ_API_KEY}",
             },
             json={
-                "model":       OPENROUTER_MODEL,
-                "max_tokens":  1024,
+                "model":       GROQ_MODEL,
+                "max_tokens":  256,
                 "temperature": 0,
                 "messages":    [{"role": "user", "content": prompt}],
             },
         )
 
+    # Rate limited — retry with backoff
     if response.status_code == 429:
         if attempt >= 3:
-            raise HTTPException(status_code=429, detail="Rate limited by OpenRouter after 3 retries")
+            raise HTTPException(status_code=429, detail="Rate limited by Groq after 3 retries")
         await asyncio.sleep(3 * (2 ** attempt))
-        return await _call_openrouter(answers, categories, attempt + 1)
+        return await _call_groq(answers, categories, attempt + 1)
 
     if response.status_code != 200:
         raise HTTPException(
             status_code=response.status_code,
-            detail=f"OpenRouter error: {response.text[:200]}",
+            detail=f"Groq error: {response.text[:200]}",
         )
 
-    data  = response.json()
-    raw   = (data.get("choices") or [{}])[0].get("message", {}).get("content", "").strip()
+    data = response.json()
+    raw  = (data.get("choices") or [{}])[0].get("message", {}).get("content", "").strip()
 
     import re, json as _json
     match = re.search(r"\[[\s\S]*?\]", raw)
@@ -191,5 +191,5 @@ async def _call_openrouter(answers: list[str], categories: list[str], attempt: i
 async def classify(req: ClassifyRequest):
     if not req.answers:
         return {c: 0 for c in req.categories}
-    counts = await _call_openrouter(req.answers, req.categories)
+    counts = await _call_groq(req.answers, req.categories)
     return counts
